@@ -1,6 +1,5 @@
 package me.enkode.zk_akka.example
 
-import concurrent._, duration._
 import akka.actor.{Props, ActorSystem, ActorLogging, Actor}
 import me.enkode.zk_akka.ZkConfigExtension
 import akka.event.LoggingReceive
