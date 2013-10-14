@@ -1,0 +1,9 @@
+target/
+.idea/
+.idea_modules/
+.DS_store
+_mb*/
+.history
+*.swp
+*.iml
+logs/
