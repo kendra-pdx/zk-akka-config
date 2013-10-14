@@ -8,12 +8,12 @@ package me.enkode.zk_akka.example
 
 import concurrent._, duration._
 import akka.actor.{Props, ActorSystem, ActorLogging, Actor}
-import me.enkode.zk_akka.ZkConfigExtension
+import me.enkode.zk_akka.{DefaultDataUnmarshallers, ZkConfigExtension}
 
 object ZkConfigExample extends App {
   case object Poke
 
-  class ZkConfigExampleActor extends Actor with ActorLogging {
+  class ZkConfigExampleActor extends Actor with ActorLogging with DefaultDataUnmarshallers {
     import ZkConfigExtension._
 
     override def preStart() = {
@@ -24,8 +24,8 @@ object ZkConfigExample extends App {
       case Subscribed(_, path) ⇒
         log.debug(s"subscribed to $path")
 
-      case ConfigValue(path, data) ⇒
-        val config = new String(data)
+      case cv@ConfigValue(path, data) ⇒
+        val config = cv.dataAs[String]
         log.debug(s"$path: $config}")
         context become (waitingForConfig() orElse configured(config))
     }

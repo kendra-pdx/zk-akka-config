@@ -7,11 +7,20 @@ import akka.actor._
 import org.apache.zookeeper.{WatchedEvent, Watcher, ZooKeeper}
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
+import scala.reflect.ClassTag
 
 object ZkConfigExtension extends ExtensionId[ZkConfigExtension] with ExtensionIdProvider {
+  trait ValueUnmarshaller[T] {
+    def unmarshal(data: Array[Byte]): T
+  }
+
   // PROTOCOL
   case class Subscribed(actorRef: ActorRef, path: Try[String])
-  case class ConfigValue(path: String, data: Array[Byte])
+  case class ConfigValue(path: String, data: Array[Byte]) {
+    def dataAs[T : ValueUnmarshaller : ClassTag] = {
+      implicitly[ValueUnmarshaller[T]].unmarshal(data)
+    }
+  }
 
   def lookup() = ZkConfigExtension
   def createExtension(system: ExtendedActorSystem): ZkConfigExtension = {
