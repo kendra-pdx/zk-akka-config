@@ -1,10 +1,12 @@
 package me.enkode.zk_akka.example
 
+import concurrent._, duration._
 import akka.actor.{Props, ActorSystem, ActorLogging, Actor}
 import me.enkode.zk_akka.ZkConfigExtension
-import akka.event.LoggingReceive
 
 object ZkConfigExample extends App {
+  case object Poke
+
   class ZkConfigExampleActor extends Actor with ActorLogging {
     import ZkConfigExtension._
 
@@ -12,17 +14,27 @@ object ZkConfigExample extends App {
       ZkConfigExtension(context.system).subscribe("/test")
     }
 
-    def running(): Receive = LoggingReceive {
+    def waitingForConfig(): Receive = {
       case Subscribed(_, path) ⇒
         log.debug(s"subscribed to $path")
 
       case ConfigValue(path, data) ⇒
-        log.debug(s"$path: ${new String(data)}")
+        val config = new String(data)
+        log.debug(s"$path: $config}")
+        context become (waitingForConfig() orElse configured(config))
     }
 
-    def receive = running()
+    def configured(config: String): Receive = {
+      case Poke ⇒
+        log.debug(s"doing something with my config, which is: $config")
+    }
+
+    def receive = waitingForConfig()
   }
 
   implicit val actorSystem = ActorSystem("ZkConfigExample")
+  import actorSystem.dispatcher
   val actorRef = actorSystem actorOf Props[ZkConfigExampleActor]
+
+  actorSystem.scheduler.schedule(1.second, 5.seconds, actorRef, Poke)
 }
