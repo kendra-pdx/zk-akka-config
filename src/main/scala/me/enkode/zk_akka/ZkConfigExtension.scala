@@ -16,9 +16,9 @@ object ZkConfigExtension extends ExtensionId[ZkConfigExtension] with ExtensionId
 
   // PROTOCOL
   case class Subscribed(actorRef: ActorRef, path: Try[String])
-  case class ConfigValue(path: String, data: Array[Byte]) {
+  case class ConfigValue(path: String, data: Option[Array[Byte]]) {
     def dataAs[T : ValueUnmarshaller : ClassTag] = {
-      implicitly[ValueUnmarshaller[T]].unmarshal(data)
+      data map { data ⇒ implicitly[ValueUnmarshaller[T]].unmarshal(data) }
     }
   }
 

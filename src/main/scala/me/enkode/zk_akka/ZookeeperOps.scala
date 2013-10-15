@@ -3,8 +3,9 @@ package me.enkode.zk_akka
 import concurrent._, duration._
 import org.apache.zookeeper.data.Stat
 import org.apache.zookeeper.{Watcher, ZooKeeper}
-import org.apache.zookeeper.AsyncCallback.DataCallback
+import org.apache.zookeeper.AsyncCallback.{ChildrenCallback, DataCallback}
 import scala.util.Success
+import java.util
 
 object ZookeeperOps {
   case class DataResult(
@@ -24,5 +25,16 @@ trait ZookeeperOps { self: Watcher ⇒
       }
     }, None)
     resultPromise.future
+  }
+
+  def getChildren(path: String, watch: Boolean = true)(implicit zk: ZooKeeper): Future[Seq[String]] = {
+    val childrenPromise = Promise[Seq[String]]()
+    zk.getChildren(path, true, new ChildrenCallback {
+      def processResult(rc: Int, path: String, ctx: scala.Any, children: util.List[String]) {
+        import collection.JavaConversions._
+        childrenPromise.complete(Success(children.toList map { child ⇒ s"$path/$child"} ))
+      }
+    }, None)
+    childrenPromise.future
   }
 }

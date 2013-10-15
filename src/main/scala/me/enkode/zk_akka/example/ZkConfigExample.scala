@@ -18,10 +18,11 @@ object ZkConfigExample extends App {
       case Subscribed(_, path) ⇒
         log.debug(s"subscribed to $path")
 
-      case cv@ConfigValue(path, data) ⇒
-        val config = cv.dataAs[String]
-        log.debug(s"$path: $config}")
-        context become (waitingForConfig() orElse configured(config))
+      case cv@ConfigValue(path, _) ⇒
+        cv.dataAs[String] map { config ⇒
+          log.debug(s"$path: $config")
+          context become (waitingForConfig() orElse configured(config))
+        }
     }
 
     def configured(config: String): Receive = {

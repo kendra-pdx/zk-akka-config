@@ -53,11 +53,17 @@ class ZkConfigActor extends Actor with ActorLogging with Watcher with ZookeeperO
     case Fetch(path) ⇒
       import context.dispatcher
       getData(path, watch = true) map { dataResult ⇒
-        ConfigValue(dataResult.path, dataResult.data)
+        ConfigValue(dataResult.path, Option(dataResult.data))
       } pipeTo self
 
+      getChildren(path, watch = true) map { children ⇒
+        children map { child ⇒ self ! Fetch(child) }
+      }
+
     case configValue: ConfigValue ⇒
-      state.subscriptions.getOrElse(configValue.path, Nil) map { subscriber ⇒
+      (state.subscriptions collect {
+        case (path, subscribers) if configValue.path startsWith path ⇒ subscribers
+      }).flatten map { subscriber ⇒
         subscriber ! configValue
       }
 
@@ -70,8 +76,8 @@ class ZkConfigActor extends Actor with ActorLogging with Watcher with ZookeeperO
   def process(event: WatchedEvent) {
     import EventType._
     event.getType match {
-      case NodeDataChanged if event.getPath != null ⇒ self ! Fetch(event.getPath)
-      case t ⇒ log.debug(s"unhandled event type $t")
+      case NodeDataChanged | NodeChildrenChanged if event.getPath != null ⇒ self ! Fetch(event.getPath)
+      case t ⇒ log.debug(s"unhandled event type $t, ${event.getPath}")
     }
   }
 }
