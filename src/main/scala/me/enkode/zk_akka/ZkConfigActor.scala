@@ -10,9 +10,9 @@ import org.apache.zookeeper.Watcher.Event.EventType
 
 object ZkConfigActor {
   // PROTOCOL
-  case class Subscribe(subscriber: ActorRef, path: String)
+  case class Subscribe(subscriber: ActorRef, path: String, andChildren: Boolean)
   case class SubscribeAck(subscribe: Subscribe)
-  case class Fetch(path: String)
+  case class Fetch(path: String, andChildren: Boolean)
 
   // INTERNAL STATE
   case class ZkConfigState(subscriptions: Map[String, Seq[ActorRef]] = Map.empty) {
@@ -39,25 +39,27 @@ class ZkConfigActor extends Actor with ActorLogging with Watcher with ZookeeperO
   import ZkConfigExtension._
   import akka.pattern.{ask, pipe}
 
-  val zkTimeout = 60.seconds
+  val zkTimeout: FiniteDuration = 60.seconds
   implicit val zk = new ZooKeeper("localhost:2181", zkTimeout.toMillis.toInt, this)
 
   def running(state: ZkConfigState): Receive = LoggingReceive {
-    case subscribe@Subscribe(subscriber, path) ⇒
+    case subscribe@Subscribe(subscriber, path, andChildren) ⇒
       log.debug(s"$sender subscribing to $path")
       sender ! SubscribeAck(subscribe)
-      self ! Fetch(path)
+      self ! Fetch(path, andChildren)
       context watch subscriber
       context become running(state.withSubscription(subscriber, path))
 
-    case Fetch(path) ⇒
+    case Fetch(path, andChildren) ⇒
       import context.dispatcher
       getData(path, watch = true) map { dataResult ⇒
         ConfigValue(dataResult.path, Option(dataResult.data))
       } pipeTo self
 
-      getChildren(path, watch = true) map { children ⇒
-        children map { child ⇒ self ! Fetch(child) }
+      if (andChildren) {
+        getChildren(path, watch = true) map { children ⇒
+          children map { child ⇒ self ! Fetch(child, andChildren) }
+        }
       }
 
     case configValue: ConfigValue ⇒
@@ -76,7 +78,8 @@ class ZkConfigActor extends Actor with ActorLogging with Watcher with ZookeeperO
   def process(event: WatchedEvent) {
     import EventType._
     event.getType match {
-      case NodeDataChanged | NodeChildrenChanged if event.getPath != null ⇒ self ! Fetch(event.getPath)
+      case NodeDataChanged     if event.getPath != null ⇒ self ! Fetch(event.getPath, andChildren = false)
+      case NodeChildrenChanged if event.getPath != null ⇒ self ! Fetch(event.getPath, andChildren = true)
       case t ⇒ log.debug(s"unhandled event type $t, ${event.getPath}")
     }
   }

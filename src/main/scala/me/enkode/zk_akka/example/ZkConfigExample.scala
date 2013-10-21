@@ -11,7 +11,7 @@ object ZkConfigExample extends App {
     import ZkConfigExtension._
 
     override def preStart() = {
-      ZkConfigExtension(context.system).subscribe("/test")
+      ZkConfigExtension(context.system).subscribe("/test", andChildren = true)
     }
 
     def waitingForConfig(): Receive = {

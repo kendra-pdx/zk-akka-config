@@ -39,13 +39,13 @@ class ZkConfigExtension(
 
   def subscribe(paths: String*)(implicit context: ActorContext): Unit = paths map { path ⇒ subscribe(path) }
 
-  def subscribe(path: String)(implicit context: ActorContext): Unit = {
+  def subscribe(path: String, andChildren: Boolean = true)(implicit context: ActorContext): Unit = {
     import akka.pattern.{ask, pipe}
     implicit val askTimeout = new Timeout(1.seconds)
     import context.dispatcher
 
     logger.debug(s"${context.self} subscribing to $path")
-    (zkConfigActor ? Subscribe(context.self, path)).mapTo[SubscribeAck] map { ack ⇒
+    (zkConfigActor ? Subscribe(context.self, path, andChildren)).mapTo[SubscribeAck] map { ack ⇒
       logger.debug(ack.toString)
       Subscribed(context.self, Success(path))
     } recover {
